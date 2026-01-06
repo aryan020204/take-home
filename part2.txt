@@ -1,0 +1,168 @@
+Companies
+
+Stores each business using the platform.
+
+companies (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  created_at TIMESTAMP
+)
+
+Warehouses
+A company can have multiple warehouses.
+
+warehouses (
+  id UUID PRIMARY KEY,
+  company_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  location TEXT,
+  FOREIGN KEY (company_id) REFERENCES companies(id)
+)
+
+
+Relationship:
+
+One company -> many warehouses
+
+Products
+
+Represents a product owned by a company.
+
+products (
+  id UUID PRIMARY KEY,
+  company_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  sku TEXT NOT NULL,
+  price DECIMAL(12, 2),
+  is_bundle BOOLEAN DEFAULT false,
+  created_at TIMESTAMP,
+  FOREIGN KEY (company_id) REFERENCES companies(id),
+  UNIQUE (sku)
+)
+
+
+Notes:
+
+SKU is unique across the platform
+
+Product is not tied to a warehouse directly
+
+Inventory
+
+Tracks how much of a product exists in a warehouse.
+
+inventory (
+  id UUID PRIMARY KEY,
+  product_id UUID NOT NULL,
+  warehouse_id UUID NOT NULL,
+  quantity INTEGER NOT NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
+  UNIQUE (product_id, warehouse_id)
+)
+
+
+This table allows:
+
+Same product in multiple warehouses
+
+Different quantities per warehouse
+
+Inventory Events
+
+Tracks changes to inventory over time.
+
+inventory_events (
+  id UUID PRIMARY KEY,
+  product_id UUID NOT NULL,
+  warehouse_id UUID NOT NULL,
+  change_quantity INTEGER NOT NULL,
+  reason TEXT,
+  created_at TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)
+)
+
+
+This supports:
+
+Auditing
+
+Tracking stock changes
+
+Debugging inventory issues
+
+Suppliers
+
+Stores supplier information.
+
+suppliers (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  contact_email TEXT
+)
+
+Product Suppliers
+
+Many-to-many relationship between products and suppliers.
+
+product_suppliers (
+  product_id UUID NOT NULL,
+  supplier_id UUID NOT NULL,
+  PRIMARY KEY (product_id, supplier_id),
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+)
+
+
+This allows:
+
+One product to have multiple suppliers
+
+One supplier to supply many products
+
+Product Bundles
+
+Defines which products are part of a bundle.
+
+product_bundles (
+  bundle_product_id UUID NOT NULL,
+  component_product_id UUID NOT NULL,
+  quantity INTEGER NOT NULL,
+  FOREIGN KEY (bundle_product_id) REFERENCES products(id),
+  FOREIGN KEY (component_product_id) REFERENCES products(id)
+)
+
+
+This supports:
+
+Bundle products made up of other products
+
+Quantity of each component in the bundle
+
+2. Missing Requirements and Questions
+
+Since the requirements are incomplete, I would ask the product team the following questions:
+
+Are SKUs unique globally or only within a company?
+Can a product belong to multiple companies, or is it always company-specific?
+How should bundle inventory be handled?
+Should bundle stock be derived from component stock or tracked separately?
+Can a product have multiple suppliers with priority or preferred ordering?
+Should inventory quantities ever be allowed to go negative?
+How long should inventory history be stored?
+Are prices the same across warehouses or warehouse-specific?
+
+These answers would affect both schema and business logic.
+
+3. Design Decisions and Justifications
+Inventory is modeled as a separate table to support multiple warehouses per product.
+Inventory events are stored separately to allow historical tracking and auditing.
+Composite unique constraints prevent duplicate inventory rows for the same product and warehouse.
+Decimal is used for price to avoid rounding issues.
+Bundle relationships are handled with a self-referencing table to keep the product model simple.
+Indexes should be added on:
+products.sku
+inventory.product_id
+inventory.warehouse_id
+inventory_events.created_at

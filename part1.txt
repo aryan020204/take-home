@@ -1,0 +1,29 @@
+After reviewing the code, there are several issues that can cause problems in real production usage. These include both technical problems and business logic mismatches.
+
+Issue 1: No input validation
+The code directly accesses fields like name, sku, price, warehouse_id, and initial_quantity from the request body without checking if the request data actually exists or if all required fields are present.
+If the client sends incomplete or malformed data, the API will crash instead of returning a proper error response.
+
+Issue 2: SKU uniqueness is not enforced
+There is no check to ensure that the SKU is unique before creating a product.
+Since SKUs are required to be unique across the platform, this can lead to duplicate products, which would cause confusion in inventory tracking, reporting, and reordering.
+
+Issue 3: Product is incorrectly linked to a warehouse
+The warehouse_id is stored directly on the Product model.
+However, the requirements state that a product can exist in multiple warehouses. This design assumes a product belongs to only one warehouse, which makes it difficult to support multiple warehouses in the future.
+
+Issue 4: Multiple database commits
+The product is committed to the database first, and the inventory is committed in a separate transaction.
+If the inventory creation fails after the product has already been committed, the system will end up with a product that has no inventory, leading to inconsistent data.
+
+Issue 5: No error handling or rollback
+The code does not handle database errors or roll back changes if something goes wrong.
+This means a failure during inventory creation could leave the database in a partially updated state, which is hard to detect and fix later.
+
+Issue 6: Price precision issues
+The price value is taken directly from the request and likely stored as a floating point number.
+Floating point values can introduce rounding errors, which is risky when dealing with prices and financial data.
+
+Issue 7: Optional fields are assumed to be mandatory
+The code assumes that warehouse_id and initial_quantity will always be provided.
+However, the context mentions that some fields may be optional. If these fields are missing, the request will fail even if the product creation itself is valid.
